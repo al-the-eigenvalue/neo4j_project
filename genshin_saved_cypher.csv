@@ -1,0 +1,79 @@
+name,description,query,id,parentId,isFolder
+visualize schema,,CALL db.schema.visualization(),0,,false
+read character relationships,,"// связи между персонажами
+
+MATCH (c1:Character)-[o:HAS_OPINION_ON]->(c2:Character)
+RETURN c1, o, c2",1,,false
+find character by name,,"// найти персонажа по имени и его регион
+
+MATCH (c:Character {name: ""Aloy""})-[rel:IS_FROM]->(r:Region)
+RETURN c, rel, r",2,,false
+delete,,"MATCH (c:Character {name: ""Aloy""})-[rel:IS_FROM]->(r:Region)
+DELETE rel",3,,false
+update relationship,,"// переселить персонажа в другой регион
+
+MATCH (c:Character {name: ""Aloy""})
+WITH c
+MATCH (r:Region {name: ""Snezhnaya""})
+CREATE (c)-[:IS_FROM]->(r)",4,,false
+update property,,"// поменять название созвездия персонажа
+
+MATCH (c:Character {name: ""Aloy""})
+WITH c, c.constellation as const_old
+SET c.constellation = ""Star of Another World""
+RETURN const_old, c.constellation",5,,false
+group + avg,,"// средние характеристики персонажей по регионам
+
+MATCH (c:Character)-[:IS_FROM]->(r:Region)
+RETURN r.name, avg(c.atk) AS avg_atk, avg(c.def) as avg_def, avg(c.hp) as avg_hp",6,,false
+group + max + sort,,"// максимальная сила атаки по типам оружия
+
+MATCH (c:Character)-[:WIELDS]->(w:Weapon)
+RETURN w.type, max(c.atk) AS max_atk
+ORDER BY max_atk DESC",7,,false
+group + count + sort,,"// сколько других персонажей имеют мнение о конкретном персонаже?
+
+MATCH (c1:Character)-[:HAS_OPINION_ON]->(c2:Character)
+RETURN c2.name, count(*) AS opinions
+ORDER by opinions DESC
+LIMIT 10",8,,false
+group + count distinct + sort,,"// сколько в каждом регионе организаций?
+
+MATCH (c:Character)-[:IS_AFFILIATED_WITH]->(o:Organization), (c:Character)-[:IS_FROM]->(r:Region)
+RETURN r.name, COUNT(DISTINCT o) AS organizations
+ORDER BY organizations DESC",9,,false
+where + group + count + sort,,"// сколько в каждом регионе персонажей с элементом огня?
+
+MATCH (e:Element)<-[:IS_ATTUNED_TO]-(c:Character)-[:IS_FROM]->(r:Region)
+WHERE e.name = ""Pyro""
+RETURN r.name, COUNT(c) AS characters
+ORDER BY characters DESC",10,,false
+shortest path,,"// наикратчайший путь между двумя персонажами (6 рукопожатий)
+
+MATCH path = shortestPath(
+  (c1:Character {name:""Lynette""})-[r:HAS_OPINION_ON*1..6]-(c2:Character {name:""Dehya""})
+)
+RETURN path",11,,false
+all shortest paths,,"// несколько наикратчайших путей
+
+MATCH path = allShortestPaths(
+  (c1:Character {name:""Hu Tao""})-[r:HAS_OPINION_ON*1..6]-(c2:Character {name:""Shikanoin Heizou""})
+)
+RETURN path",12,,false
+one-sided opinions,,"// односторонние связи между персонажами
+
+MATCH (c1:Character)-[r1:HAS_OPINION_ON]->(c2:Character)
+WHERE NOT (c2)-[:HAS_OPINION_ON]->(c1)
+RETURN c1, r1, c2",13,,false
+ratio of one-sided opinions to total,,"// сколько мнений персонажа о других являются односторонними?
+
+MATCH (c1:Character)-[r1:HAS_OPINION_ON]->(c2:Character)
+WHERE (c2)-[:HAS_OPINION_ON]->(c1)
+WITH c1, count(*) AS two_sided
+
+MATCH (c1:Character)-[r1:HAS_OPINION_ON]->(c2:Character)
+WHERE NOT (c2)-[:HAS_OPINION_ON]->(c1)
+WITH c1, two_sided, count(*) AS one_sided
+
+RETURN c1.name, one_sided, two_sided, one_sided * 1.0 /(one_sided + two_sided) AS one_sided_ratio
+ORDER BY one_sided_ratio DESC",14,,false
